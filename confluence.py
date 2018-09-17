@@ -16,7 +16,7 @@ CONFLUENCE_SERVER_URL = os.environ.get("CONFLUENCE_SERVER_URL", "https://wiki.si
 IMPORT_WORD_URL = "{base}/pages/worddav/importword.action".format(base=CONFLUENCE_SERVER_URL)
 DO_IMPORT_URL = "{base}/pages/worddav/doimportword.action".format(base=CONFLUENCE_SERVER_URL)
 
-GOOGLE_SPREADSHEET_SOURCE =
+
 def create_page(space_key, title, body="", parent_id=None):
     url = "{base}/rest/api/content".format(base=CONFLUENCE_SERVER_URL)
     payload = {
