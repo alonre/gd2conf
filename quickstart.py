@@ -19,6 +19,10 @@ logger.addHandler(logging.StreamHandler())
 # If modifying these scopes, delete the file token.json.
 SCOPES = 'https://www.googleapis.com/auth/drive'
 AUTOMATIC_IMPORT_COMMENT = 'Automagically imported from: <a href="{link}">{link}</a>'
+SUPPORTED_MIME_TYPES = [MimeTypes.GOOGLE_APPS_FOLDER,
+                        MimeTypes.GOOGLE_DOC,
+                        MimeTypes.GOOGLE_SPREADSHEET,
+                        MimeTypes.GOOGLE_SLIDES]
 
 
 class GDriveMigrator(object):
@@ -63,7 +67,7 @@ class GDriveMigrator(object):
         logger.debug("Result: name: {} mimeType: {}".format(root_item['name'], root_item['mimeType']))
 
         # create root page in Confluence
-        c_root = confluence.create_page(target_space_key, root_item['name'], parent_id=parent_page_id)
+        c_root = confluence.create_page(target_space_key, root_item['name'], parent_id=parent_page_id, google_item=root_item)
         if not 'id' in c_root:
             page_title = "{} (GDrive import {})".format(root_item['name'], datetime.date.today())
             c_root = confluence.create_page(target_space_key, page_title, parent_id=parent_page_id)
@@ -94,7 +98,8 @@ class GDriveMigrator(object):
                         logger.debug('Files:')
                         for item in items:
                             logger.debug('{0} ({1} {2})'.format(item['name'], item['id'], item['mimeType']))
-                            self.migrate_to_confluence(item, target_space_key, root_page_id)
+                            if item['mimeType'] in SUPPORTED_MIME_TYPES:
+                                self.migrate_to_confluence(item, target_space_key, root_page_id)
                     page_token = results.get('nextPageToken')
                     if not page_token:
                         break
@@ -103,9 +108,6 @@ class GDriveMigrator(object):
                     break
         elif mimeType == MimeTypes.GOOGLE_DOC:
             self.migrate_google_doc(root_item, c_root)
-        elif mimeType in [MimeTypes.GOOGLE_SPREADSHEET, MimeTypes.GOOGLE_SLIDES]:
-            self.embed_google_content(root_item, c_root)
-
 
 
 def main():

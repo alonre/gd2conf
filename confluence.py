@@ -19,11 +19,14 @@ DO_IMPORT_URL = "{base}/pages/worddav/doimportword.action".format(base=CONFLUENC
 
 GOOGLE_SPREADSHEET_TEMPLATE = open("templates/google_spreadsheet.html", 'r').read()
 GOOGLE_SLIDES_TEMPLATE = open("templates/google_slides.html", 'r').read()
+FOLDER_TEMPLATE = open("templates/folder.html", 'r').read()
 ITEM_ID_MACRO = "{item_id}"
 
 
-def create_page(space_key, title, body="", parent_id=None):
+def create_page(space_key, title, body="", parent_id=None, google_item=None):
     url = "{base}/rest/api/content".format(base=CONFLUENCE_SERVER_URL)
+    if google_item and body == "":
+        body = get_body_for_google_item(google_item)
     payload = {
         "type": "page",
         "title": title,
@@ -113,28 +116,27 @@ def import_google_doc(google_item, page_item):
     _do_import_word(page_id, 0, google_item['name'])
 
 
-def embed_google_content(google_item, page_item):
-    space_key = page_item['space']['key']
-    page_id = page_item['id']
-    title = page_item['title']
+def get_body_for_google_item(google_item):
     body = None
-    if google_item['mimeType'] == MimeTypes.GOOGLE_SPREADSHEET:
+    mime_type = google_item['mimeType']
+    if mime_type == MimeTypes.GOOGLE_APPS_FOLDER:
+        body = FOLDER_TEMPLATE
+    elif mime_type == MimeTypes.GOOGLE_SPREADSHEET:
         body = GOOGLE_SPREADSHEET_TEMPLATE
     elif google_item['mimeType'] == MimeTypes.GOOGLE_SLIDES:
         body = GOOGLE_SLIDES_TEMPLATE
     if not body:
         return None
     body = body.format(item_id=google_item['id'])
-    return update_page(space_key, page_id, title, body)
+    return body
 
 
-
-def embed_google_slides(google_item, page_item):
+def embed_google_content(google_item, page_item):
     space_key = page_item['space']['key']
     page_id = page_item['id']
     title = page_item['title']
-
-    update_page(space_key, page_id, title, body)
+    body = get_body_for_google_item(google_item)
+    return update_page(space_key, page_id, title, body)
 
 
 def _import_word(page_id, file_name, file_content):
