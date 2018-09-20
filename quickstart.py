@@ -18,6 +18,7 @@ logger.addHandler(logging.StreamHandler())
 
 # If modifying these scopes, delete the file token.json.
 SCOPES = 'https://www.googleapis.com/auth/drive'
+AUTOMATIC_IMPORT_COMMENT = 'Automagically imported from: <a href="{link}">{link}</a>'
 
 
 class GDriveMigrator(object):
@@ -45,19 +46,16 @@ class GDriveMigrator(object):
         root_md = self.drive_service.files().get(fileId=item_id, fields="id, name, mimeType, webViewLink").execute()
         return root_md
 
-    def migrate_google_doc(self, item, page_id):
+    def migrate_google_doc(self, item, page_item):
         try:
             item['file_content'] = self.download_doc(item['name'], item['id'])
             item['file_name'] = '{}.doc'.format(item['name'])
-            confluence.import_google_doc(item, page_id)
+            confluence.import_google_doc(item, page_item)
         except:
             pass
 
-    def migrate_google_spreadsheet(self, item, page_id):
-        try:
-            self.download_doc(item['name'], item['id'])
-        except:
-            pass
+    def embed_google_content(self, item, page_item):
+        confluence.embed_google_content(item, page_item)
 
     def migrate_to_confluence(self, root_item, target_space_key, parent_page_id):
         logger.debug("Migrating item:{} into space:{} parentId:{}".format(root_item['id'], target_space_key, parent_page_id))
@@ -71,7 +69,7 @@ class GDriveMigrator(object):
             c_root = confluence.create_page(target_space_key, page_title, parent_id=parent_page_id)
         logger.debug("Created root page in Confluence: {}".format(c_root))
         root_page_id = c_root.get('id', None)
-        import_comment = "Automagically imported from: {}".format(root_item['webViewLink'])
+        import_comment = AUTOMATIC_IMPORT_COMMENT.format(link=root_item['webViewLink'])
         confluence.comment_on_page(root_page_id, import_comment)
 
         # according to mimeType, do the right thing
@@ -104,17 +102,13 @@ class GDriveMigrator(object):
                     logger.error("{}".format(error))
                     break
         elif mimeType == MimeTypes.GOOGLE_DOC:
-            self.migrate_google_doc(root_item, root_page_id)
-        elif mimeType == MimeTypes.GOOGLE_SPREADSHEET:
-            self.migrate_google_spreadsheet(root_item, root_page_id)
-        # elif mimeType == MimeTypes.GOOGLE_SLIDES:
+            self.migrate_google_doc(root_item, c_root)
+        elif mimeType in [MimeTypes.GOOGLE_SPREADSHEET, MimeTypes.GOOGLE_SLIDES]:
+            self.embed_google_content(root_item, c_root)
 
 
 
 def main():
-    """Shows basic usage of the Drive v3 API.
-    Prints the names and ids of the first 10 files the user has access to.
-    """
     migrator = GDriveMigrator()
     root_md = migrator.get_metadata('1f746Qv1Id7gD-EX_3bSbRxWAUw_ANYlg')
     migrator.migrate_to_confluence(root_md, 'ds', "65538")
